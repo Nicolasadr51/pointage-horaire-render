@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: pointage-horaire
+    env: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: python app.py
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: SECRET_KEY
+        value: pointeuse_production_key_2024_secure_v2
