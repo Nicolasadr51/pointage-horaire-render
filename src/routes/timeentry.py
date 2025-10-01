@@ -3,6 +3,7 @@ from datetime import datetime, date, time
 import pytz
 from src.models.employee import db, Employee, TimeEntry
 from src.routes.auth import login_required, admin_required
+from calendar import monthrange
 
 timeentry_bp = Blueprint('timeentry', __name__)
 
@@ -38,7 +39,7 @@ def punch_time():
             )
             db.session.add(time_entry)
         
-        # Vérifier la logique des pointages
+        # Vérifier que le pointage est dans l'ordre
         if punch_type == 'lunch_out' and not time_entry.morning_in:
             return jsonify({'error': 'Vous devez d\'abord pointer votre arrivée du matin'}), 400
         elif punch_type == 'lunch_in' and not time_entry.lunch_out:
@@ -46,25 +47,24 @@ def punch_time():
         elif punch_type == 'evening_out' and not time_entry.lunch_in:
             return jsonify({'error': 'Vous devez d\'abord pointer votre retour de déjeuner'}), 400
         
-        # Vérifier si le pointage n'a pas déjà été fait
+        # Vérifier que le pointage n'a pas déjà été fait
         if getattr(time_entry, punch_type):
-            return jsonify({'error': 'Ce pointage a déjà été effectué'}), 400
+            return jsonify({'error': 'Ce pointage a déjà été enregistré'}), 400
         
-        # Mettre à jour le pointage
+        # Enregistrer le pointage
         setattr(time_entry, punch_type, current_time)
         
-        # Recalculer les heures
+        # Calculer les heures si possible
         time_entry.calculate_hours()
         
         db.session.commit()
         
         return jsonify({
-            'message': f'Pointage {punch_type} enregistré',
+            'message': f'Pointage {punch_type} enregistré avec succès',
             'time_entry': time_entry.to_dict()
         }), 200
         
     except Exception as e:
-        db.session.rollback()
         return jsonify({'error': f'Erreur lors du pointage: {str(e)}'}), 500
 
 @timeentry_bp.route('/today', methods=['GET'])
@@ -149,6 +149,63 @@ def get_summary():
     except Exception as e:
         return jsonify({'error': f'Erreur lors du calcul du résumé: {str(e)}'}), 500
 
+@timeentry_bp.route('/monthly-stats', methods=['GET'])
+@login_required
+def get_monthly_stats():
+    """Récupérer les statistiques mensuelles de l'employé"""
+    try:
+        employee_id = session['employee_id']
+        
+        # Utiliser le fuseau horaire français
+        paris_tz = pytz.timezone('Europe/Paris')
+        now_paris = datetime.now(paris_tz)
+        
+        # Paramètres optionnels pour le mois/année
+        year = request.args.get('year', now_paris.year, type=int)
+        month = request.args.get('month', now_paris.month, type=int)
+        
+        # Calculer les dates de début et fin du mois
+        first_day = date(year, month, 1)
+        last_day_num = monthrange(year, month)[1]
+        last_day = date(year, month, last_day_num)
+        
+        # Récupérer tous les pointages du mois
+        entries = TimeEntry.query.filter_by(employee_id=employee_id)\
+                                .filter(TimeEntry.date >= first_day)\
+                                .filter(TimeEntry.date <= last_day)\
+                                .all()
+        
+        # Calculer les statistiques
+        total_hours = sum(entry.total_hours for entry in entries if entry.total_hours)
+        total_days_worked = len([entry for entry in entries if entry.total_hours and entry.total_hours > 0])
+        total_days_in_month = last_day_num
+        
+        # Calculer les jours ouvrables (approximation : 5 jours par semaine)
+        # Pour une estimation plus précise, on pourrait exclure les weekends
+        working_days_in_month = sum(1 for day in range(1, last_day_num + 1) 
+                                  if date(year, month, day).weekday() < 5)  # 0-4 = Lundi-Vendredi
+        
+        average_hours_per_day = total_hours / total_days_worked if total_days_worked > 0 else 0
+        
+        # Calculer le pourcentage de présence
+        attendance_rate = (total_days_worked / working_days_in_month * 100) if working_days_in_month > 0 else 0
+        
+        return jsonify({
+            'month': month,
+            'year': year,
+            'month_name': now_paris.replace(year=year, month=month).strftime('%B %Y'),
+            'total_hours': round(total_hours, 2),
+            'total_days_worked': total_days_worked,
+            'total_days_in_month': total_days_in_month,
+            'working_days_in_month': working_days_in_month,
+            'average_hours_per_day': round(average_hours_per_day, 2),
+            'attendance_rate': round(attendance_rate, 1),
+            'entries_count': len(entries)
+        }), 200
+        
+    except Exception as e:
+        return jsonify({'error': f'Erreur lors du calcul des statistiques mensuelles: {str(e)}'}), 500
+
 # Routes administrateur
 
 @timeentry_bp.route('/admin/entries', methods=['GET'])
@@ -220,5 +277,4 @@ def update_entry(entry_id):
         }), 200
         
     except Exception as e:
-        db.session.rollback()
         return jsonify({'error': f'Erreur lors de la mise à jour: {str(e)}'}), 500
