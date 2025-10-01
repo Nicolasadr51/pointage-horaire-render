@@ -123,8 +123,8 @@ def create_employee():
             if not data.get(field):
                 return jsonify({'error': f'Le champ {field} est requis'}), 400
         
-        # Vérifier l'unicité du numéro d'employé
-        if Employee.query.filter_by(employee_number=data['employee_number']).first():
+        # Vérifier l'unicité du numéro d'employé (insensible à la casse)
+        if Employee.query.filter(Employee.employee_number.ilike(data['employee_number'])).first():
             return jsonify({'error': 'Ce numéro d\'employé existe déjà'}), 400
         
         # Vérifier l'unicité de l'email
@@ -179,9 +179,9 @@ def update_employee(employee_id):
         
         # Mettre à jour les champs
         if 'employee_number' in data:
-            # Vérifier l'unicité
+            # Vérifier l'unicité (insensible à la casse)
             existing = Employee.query.filter(
-                Employee.employee_number == data['employee_number'],
+                Employee.employee_number.ilike(data['employee_number']),
                 Employee.id != employee_id
             ).first()
             if existing:

@@ -46,8 +46,8 @@ def login():
         if not employee_number or not password:
             return jsonify({'error': 'Numéro d\'employé et mot de passe requis'}), 400
         
-        # Rechercher l'employé
-        employee = Employee.query.filter_by(employee_number=employee_number).first()
+        # Rechercher l'employé (insensible à la casse)
+        employee = Employee.query.filter(Employee.employee_number.ilike(employee_number)).first()
         
         if not employee:
             return jsonify({'error': 'Employé non trouvé'}), 401
