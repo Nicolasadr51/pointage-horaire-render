@@ -194,11 +194,60 @@ def serve_static_files(path):
         # Si le fichier n'existe pas, servir index.html pour le routing côté client
         return send_file(os.path.join(app.static_folder, 'index.html'))
 
+def init_database_safe():
+    """Initialisation sécurisée de la base de données pour PostgreSQL"""
+    try:
+        print("🔧 Initialisation de la base de données...")
+        
+        # Créer les tables
+        db.create_all()
+        print("✅ Tables créées")
+        
+        # Vérifier si un admin existe déjà
+        admin_exists = Employee.query.filter_by(is_admin=True).first()
+        
+        if not admin_exists:
+            print("👤 Création de l'administrateur par défaut...")
+            
+            import hashlib
+            def hash_password(password):
+                return hashlib.sha256(password.encode()).hexdigest()
+            
+            admin = Employee(
+                employee_number='ADMIN001',
+                first_name='Administrateur',
+                last_name='Système',
+                email='admin@pointage.local',
+                password_hash=hash_password('admin123'),
+                is_admin=True,
+                is_active=True
+            )
+            
+            db.session.add(admin)
+            db.session.commit()
+            
+            print("✅ Administrateur créé : ADMIN001 / admin123")
+        else:
+            print(f"✅ Administrateur existant trouvé : {admin_exists.employee_number}")
+        
+        # Statistiques
+        total_employees = Employee.query.count()
+        print(f"📊 {total_employees} employés dans la base de données")
+        
+        return True
+        
+    except Exception as e:
+        print(f"❌ Erreur lors de l'initialisation : {e}")
+        # En cas d'erreur, essayer de rollback
+        try:
+            db.session.rollback()
+        except:
+            pass
+        return False
+
 if __name__ == '__main__':
     with app.app_context():
-        # Utiliser le script d'initialisation avec préservation
-        from init_with_preservation import init_database_with_preservation
-        init_database_with_preservation()
+        init_database_safe()
     
     port = int(os.environ.get('PORT', 10000))
     app.run(host='0.0.0.0', port=port, debug=False)
