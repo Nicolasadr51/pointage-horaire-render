@@ -83,9 +83,9 @@ class TimeEntry(db.Model):
             'lunch_out': self.lunch_out.strftime('%H:%M') if self.lunch_out else None,
             'lunch_in': self.lunch_in.strftime('%H:%M') if self.lunch_in else None,
             'evening_out': self.evening_out.strftime('%H:%M') if self.evening_out else None,
-            'morning_hours': self.morning_hours,
-            'afternoon_hours': self.afternoon_hours,
-            'total_hours': self.total_hours,
+            'morning_hours': round(self.morning_hours, 2),
+            'afternoon_hours': round(self.afternoon_hours, 2),
+            'total_hours': round(self.total_hours, 2),
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None
         }
@@ -98,14 +98,14 @@ class TimeEntry(db.Model):
         # Calcul des heures du matin
         if self.morning_in and self.lunch_out:
             morning_delta = datetime.combine(self.date, self.lunch_out) - datetime.combine(self.date, self.morning_in)
-            self.morning_hours = morning_delta.total_seconds() / 3600
+            self.morning_hours = round(morning_delta.total_seconds() / 3600, 2)
         
         # Calcul des heures de l'après-midi
         if self.lunch_in and self.evening_out:
             afternoon_delta = datetime.combine(self.date, self.evening_out) - datetime.combine(self.date, self.lunch_in)
-            self.afternoon_hours = afternoon_delta.total_seconds() / 3600
+            self.afternoon_hours = round(afternoon_delta.total_seconds() / 3600, 2)
         
         # Total journalier
-        self.total_hours = self.morning_hours + self.afternoon_hours
+        self.total_hours = round(self.morning_hours + self.afternoon_hours, 2)
         
         return self.total_hours
