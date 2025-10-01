@@ -10,3 +10,5 @@ click==8.2.1
 blinker==1.9.0
 
 gunicorn==21.2.0
+
+pytz==2023.3

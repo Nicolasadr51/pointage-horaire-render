@@ -1,5 +1,6 @@
 from flask import Blueprint, request, jsonify, session
 from datetime import datetime, date, time
+import pytz
 from src.models.employee import db, Employee, TimeEntry
 from src.routes.auth import login_required, admin_required
 
@@ -17,8 +18,12 @@ def punch_time():
             return jsonify({'error': 'Type de pointage invalide'}), 400
         
         employee_id = session['employee_id']
-        today = date.today()
-        current_time = datetime.now().time()
+        
+        # Utiliser le fuseau horaire français
+        paris_tz = pytz.timezone('Europe/Paris')
+        now_paris = datetime.now(paris_tz)
+        today = now_paris.date()
+        current_time = now_paris.time()
         
         # Rechercher ou créer l'entrée du jour
         time_entry = TimeEntry.query.filter_by(
@@ -68,7 +73,10 @@ def get_today_entry():
     """Récupérer le pointage du jour pour l'employé connecté"""
     try:
         employee_id = session['employee_id']
-        today = date.today()
+        
+        # Utiliser le fuseau horaire français
+        paris_tz = pytz.timezone('Europe/Paris')
+        today = datetime.now(paris_tz).date()
         
         time_entry = TimeEntry.query.filter_by(
             employee_id=employee_id,

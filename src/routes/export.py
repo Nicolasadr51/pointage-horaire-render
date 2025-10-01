@@ -1,5 +1,6 @@
 from flask import Blueprint, request, jsonify, make_response
 from datetime import datetime, date, timedelta
+import pytz
 from src.models.employee import db, Employee, TimeEntry
 from src.routes.auth import admin_required
 import csv
@@ -72,7 +73,7 @@ def export_csv():
         output.seek(0)
         response = make_response(output.getvalue())
         response.headers['Content-Type'] = 'text/csv; charset=utf-8'
-        response.headers['Content-Disposition'] = f'attachment; filename=pointages_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv'
+        response.headers['Content-Disposition'] = f'attachment; filename=pointages_{datetime.now(pytz.timezone("Europe/Paris")).strftime("%Y%m%d_%H%M%S")}.csv'
         
         return response
         
@@ -152,7 +153,7 @@ def export_summary():
             output.seek(0)
             response = make_response(output.getvalue())
             response.headers['Content-Type'] = 'text/csv; charset=utf-8'
-            response.headers['Content-Disposition'] = f'attachment; filename=resume_heures_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv'
+            response.headers['Content-Disposition'] = f'attachment; filename=resume_heures_{datetime.now(pytz.timezone("Europe/Paris")).strftime("%Y%m%d_%H%M%S")}.csv'
             
             return response
         else:
@@ -163,7 +164,7 @@ def export_summary():
                     'start_date': start_date,
                     'end_date': end_date
                 },
-                'generated_at': datetime.now().isoformat()
+                'generated_at': datetime.now(pytz.timezone("Europe/Paris")).isoformat()
             }), 200
         
     except Exception as e:
@@ -174,8 +175,8 @@ def export_summary():
 def export_monthly():
     """Exporter un rapport mensuel"""
     try:
-        year = request.args.get('year', datetime.now().year, type=int)
-        month = request.args.get('month', datetime.now().month, type=int)
+        year = request.args.get('year', datetime.now(pytz.timezone("Europe/Paris")).year, type=int)
+        month = request.args.get('month', datetime.now(pytz.timezone("Europe/Paris")).month, type=int)
         format_type = request.args.get('format', 'json')
         
         # Calculer les dates de début et fin du mois
@@ -279,7 +280,7 @@ def export_monthly():
             return response
         else:
             # Export JSON
-            monthly_data['generated_at'] = datetime.now().isoformat()
+            monthly_data['generated_at'] = datetime.now(pytz.timezone("Europe/Paris")).isoformat()
             return jsonify(monthly_data), 200
         
     except Exception as e:

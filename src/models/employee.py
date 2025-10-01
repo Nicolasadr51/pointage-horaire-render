@@ -1,5 +1,10 @@
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
+import pytz
+
+def get_paris_time():
+    """Retourne l'heure actuelle en fuseau horaire français"""
+    return datetime.now(pytz.timezone('Europe/Paris')).replace(tzinfo=None)
 
 db = SQLAlchemy()
 
@@ -12,7 +17,7 @@ class Employee(db.Model):
     password_hash = db.Column(db.String(255), nullable=False)
     is_admin = db.Column(db.Boolean, default=False, nullable=False)
     is_active = db.Column(db.Boolean, default=True, nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=get_paris_time)
     
     # Relation avec les pointages
     time_entries = db.relationship('TimeEntry', backref='employee', lazy=True, cascade='all, delete-orphan')
@@ -53,8 +58,8 @@ class TimeEntry(db.Model):
     total_hours = db.Column(db.Float, default=0.0)    # Total journalier
     
     # Métadonnées
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=get_paris_time)
+    updated_at = db.Column(db.DateTime, default=get_paris_time, onupdate=get_paris_time)
     
     # Index pour optimiser les requêtes
     __table_args__ = (
