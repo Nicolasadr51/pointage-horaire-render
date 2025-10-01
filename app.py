@@ -27,10 +27,26 @@ app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 
 # Configuration de la base de données
-database_dir = os.path.join(os.path.dirname(__file__), 'database')
-os.makedirs(database_dir, exist_ok=True)  # Créer le dossier s'il n'existe pas
-database_path = os.path.join(database_dir, 'app.db')
-app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{database_path}'
+# Utiliser Neon PostgreSQL gratuit si disponible, sinon SQLite local
+if os.environ.get('DATABASE_URL'):
+    # Production avec Neon PostgreSQL (gratuit)
+    database_url = os.environ.get('DATABASE_URL')
+    # Neon utilise parfois postgres:// au lieu de postgresql://
+    if database_url.startswith('postgres://'):
+        database_url = database_url.replace('postgres://', 'postgresql://', 1)
+    
+    app.config['SQLALCHEMY_DATABASE_URI'] = database_url
+    print("🐘 Utilisation de Neon PostgreSQL (gratuit) pour la persistance")
+    database_type = "PostgreSQL (Neon)"
+else:
+    # Développement avec SQLite
+    database_dir = os.path.join(os.path.dirname(__file__), 'database')
+    os.makedirs(database_dir, exist_ok=True)
+    database_path = os.path.join(database_dir, 'app.db')
+    app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{database_path}'
+    print("🗄️ Utilisation de SQLite pour le développement")
+    database_type = "SQLite (local)"
+
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # Initialisation des extensions
@@ -55,7 +71,7 @@ def create_backup():
         return jsonify({'error': 'Accès refusé'}), 403
     
     try:
-        # Importer et exécuter la fonction de sauvegarde
+        # Avec PostgreSQL, créer un export JSON
         import subprocess
         import sys
         
@@ -64,7 +80,12 @@ def create_backup():
         ], capture_output=True, text=True, cwd=os.path.dirname(__file__))
         
         if result.returncode == 0:
-            return jsonify({'message': 'Sauvegarde créée avec succès', 'output': result.stdout}), 200
+            return jsonify({
+                'message': 'Sauvegarde créée avec succès',
+                'output': result.stdout,
+                'database_type': database_type,
+                'note': 'PostgreSQL assure la persistance automatique'
+            }), 200
         else:
             return jsonify({'error': 'Échec de la sauvegarde', 'output': result.stderr}), 500
             
@@ -82,7 +103,6 @@ def restore_backup():
         return jsonify({'error': 'Accès refusé'}), 403
     
     try:
-        # Importer et exécuter la fonction de restauration
         import subprocess
         import sys
         
@@ -91,7 +111,11 @@ def restore_backup():
         ], capture_output=True, text=True, cwd=os.path.dirname(__file__))
         
         if result.returncode == 0:
-            return jsonify({'message': 'Données restaurées avec succès', 'output': result.stdout}), 200
+            return jsonify({
+                'message': 'Données restaurées avec succès',
+                'output': result.stdout,
+                'database_type': database_type
+            }), 200
         else:
             return jsonify({'error': 'Échec de la restauration', 'output': result.stderr}), 500
             
@@ -112,7 +136,11 @@ def list_backups():
         backup_dir = os.path.join(os.path.dirname(__file__), 'backups')
         
         if not os.path.exists(backup_dir):
-            return jsonify({'backups': []}), 200
+            return jsonify({
+                'backups': [],
+                'database_type': database_type,
+                'note': 'PostgreSQL assure la persistance automatique'
+            }), 200
         
         backup_files = [f for f in os.listdir(backup_dir) if f.startswith('backup_') and f.endswith('.json')]
         
@@ -129,7 +157,11 @@ def list_backups():
                 'date_formatted': file_date.strftime('%Y-%m-%d %H:%M:%S')
             })
         
-        return jsonify({'backups': backups}), 200
+        return jsonify({
+            'backups': backups,
+            'database_type': database_type,
+            'note': 'Les données sont automatiquement persistées avec PostgreSQL'
+        }), 200
         
     except Exception as e:
         return jsonify({'error': f'Erreur lors de la liste des sauvegardes: {str(e)}'}), 500
@@ -137,7 +169,16 @@ def list_backups():
 @app.route('/health')
 def health_check():
     """Point de contrôle de santé pour le déploiement"""
-    return {'status': 'healthy', 'app': 'pointeuse-horaire'}, 200
+    is_postgresql = os.environ.get('DATABASE_URL') is not None
+    
+    return {
+        'status': 'healthy', 
+        'app': 'pointeuse-horaire',
+        'database': database_type,
+        'persistent': is_postgresql,
+        'free_tier': 'Neon PostgreSQL' if is_postgresql else 'Local SQLite',
+        'storage_limit': '512 MB' if is_postgresql else 'Illimité (local)'
+    }, 200
 
 @app.route('/')
 def serve_frontend():
