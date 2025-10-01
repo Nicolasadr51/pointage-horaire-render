@@ -1,0 +1,17 @@
+{
+  "backup_date": "2025-10-01T05:52:58.932130",
+  "employees": [
+    {
+      "id": 1,
+      "employee_number": "ADMIN001",
+      "first_name": "Administrateur",
+      "last_name": "Système",
+      "email": "admin@pointage.local",
+      "password_hash": "240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9",
+      "is_admin": 1,
+      "is_active": 1,
+      "created_at": "2025-10-01 11:52:53.324051"
+    }
+  ],
+  "time_entries": []
+}
