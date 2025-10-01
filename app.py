@@ -27,7 +27,9 @@ app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 
 # Configuration de la base de données
-database_path = os.path.join(os.path.dirname(__file__), 'database', 'app.db')
+database_dir = os.path.join(os.path.dirname(__file__), 'database')
+os.makedirs(database_dir, exist_ok=True)  # Créer le dossier s'il n'existe pas
+database_path = os.path.join(database_dir, 'app.db')
 app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{database_path}'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
