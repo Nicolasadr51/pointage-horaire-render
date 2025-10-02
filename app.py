@@ -227,3 +227,144 @@ if __name__ == '__main__':
     
     port = int(os.environ.get('PORT', 10000))
     app.run(host='0.0.0.0', port=port, debug=False)
+
+
+# API Routes pour la gestion des pointages (Admin)
+@app.route('/api/admin/timeentries', methods=['GET'])
+@admin_required
+def get_admin_timeentries():
+    employee_id = request.args.get('employee_id', type=int)
+    start_date_str = request.args.get('start_date')
+    end_date_str = request.args.get('end_date')
+    entry_type = request.args.get('entry_type')
+    limit = request.args.get('limit', type=int, default=50)
+    offset = request.args.get('offset', type=int, default=0)
+
+    query = TimeEntry.query
+
+    if employee_id:
+        query = query.filter_by(employee_id=employee_id)
+    if start_date_str:
+        start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+        query = query.filter(func.date(TimeEntry.timestamp) >= start_date)
+    if end_date_str:
+        end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
+        query = query.filter(func.date(TimeEntry.timestamp) <= end_date)
+    if entry_type:
+        query = query.filter_by(entry_type=entry_type)
+
+    total_count = query.count()
+    timeentries = query.order_by(TimeEntry.timestamp.desc()).limit(limit).offset(offset).all()
+
+    results = []
+    for entry in timeentries:
+        employee = Employee.query.get(entry.employee_id)
+        results.append({
+            'id': entry.id,
+            'employee_id': entry.employee_id,
+            'employee_number': employee.employee_number if employee else 'N/A',
+            'employee_name': f'{employee.first_name} {employee.last_name}' if employee else 'N/A',
+            'entry_type': entry.entry_type,
+            'timestamp': entry.timestamp.isoformat(),
+            'created_at': entry.created_at.isoformat(),
+            'notes': entry.notes
+        })
+    return jsonify({'success': True, 'timeentries': results, 'total_count': total_count})
+
+@app.route('/api/admin/timeentries', methods=['POST'])
+@admin_required
+def create_admin_timeentry():
+    data = request.get_json()
+    employee_id = data.get('employee_id')
+    entry_type = data.get('entry_type')
+    timestamp_str = data.get('timestamp')
+    notes = data.get('notes')
+
+    if not all([employee_id, entry_type, timestamp_str]):
+        return jsonify({'success': False, 'error': 'Missing data'}), 400
+
+    try:
+        timestamp = datetime.fromisoformat(timestamp_str)
+    except ValueError:
+        return jsonify({'success': False, 'error': 'Invalid timestamp format'}), 400
+
+    employee = Employee.query.get(employee_id)
+    if not employee:
+        return jsonify({'success': False, 'error': 'Employee not found'}), 404
+
+    new_timeentry = TimeEntry(
+        employee_id=employee_id,
+        entry_type=entry_type,
+        timestamp=timestamp,
+        notes=notes
+    )
+    db.session.add(new_timeentry)
+    db.session.commit()
+    return jsonify({'success': True, 'message': 'Time entry created', 'id': new_timeentry.id}), 201
+
+@app.route('/api/admin/timeentries/<int:timeentry_id>', methods=['PUT'])
+@admin_required
+def update_admin_timeentry(timeentry_id):
+    data = request.get_json()
+    timeentry = TimeEntry.query.get(timeentry_id)
+
+    if not timeentry:
+        return jsonify({'success': False, 'error': 'Time entry not found'}), 404
+
+    employee_id = data.get('employee_id')
+    entry_type = data.get('entry_type')
+    timestamp_str = data.get('timestamp')
+    notes = data.get('notes')
+
+    if employee_id:
+        employee = Employee.query.get(employee_id)
+        if not employee:
+            return jsonify({'success': False, 'error': 'Employee not found'}), 404
+        timeentry.employee_id = employee_id
+    if entry_type:
+        timeentry.entry_type = entry_type
+    if timestamp_str:
+        try:
+            timeentry.timestamp = datetime.fromisoformat(timestamp_str)
+        except ValueError:
+            return jsonify({'success': False, 'error': 'Invalid timestamp format'}), 400
+    if notes is not None:
+        timeentry.notes = notes
+
+    db.session.commit()
+    return jsonify({'success': True, 'message': 'Time entry updated'})
+
+@app.route('/api/admin/timeentries/<int:timeentry_id>', methods=['DELETE'])
+@admin_required
+def delete_admin_timeentry(timeentry_id):
+    timeentry = TimeEntry.query.get(timeentry_id)
+
+    if not timeentry:
+        return jsonify({'success': False, 'error': 'Time entry not found'}), 404
+
+    db.session.delete(timeentry)
+    db.session.commit()
+    return jsonify({'success': True, 'message': 'Time entry deleted'})
+
+@app.route('/api/admin/timeentries/bulk', methods=['POST'])
+@admin_required
+def bulk_admin_timeentries():
+    data = request.get_json()
+    action = data.get('action')
+    timeentry_ids = data.get('timeentry_ids')
+
+    if not action or not timeentry_ids or not isinstance(timeentry_ids, list):
+        return jsonify({'success': False, 'error': 'Invalid bulk operation data'}), 400
+
+    if action == 'delete':
+        deleted_count = 0
+        for timeentry_id in timeentry_ids:
+            timeentry = TimeEntry.query.get(timeentry_id)
+            if timeentry:
+                db.session.delete(timeentry)
+                deleted_count += 1
+        db.session.commit()
+        return jsonify({'success': True, 'message': f'{deleted_count} time entries deleted', 'deleted_count': deleted_count})
+    
+    return jsonify({'success': False, 'error': 'Unknown bulk action'}), 400
+
