@@ -290,13 +290,15 @@
                 }
                 
                 // Ensuite effectuer le pointage
-                const pointageResponse = await fetch('/api/timeentries', {
+                const pointageResponse = await fetch('/api/punch', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                     },
                     body: JSON.stringify({
-                        type: type
+                        employee_number: employeeNumber,
+                        entry_type: type === 'entree' ? 'in' : 'out',
+                        notes: ''
                     })
                 });
                 
