@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Application de Pointage - Version Sécurisée pour Déploiement
+Application de Pointage - Version Corrigée et Sécurisée
 Intègre les améliorations de sécurité recommandées par Claude 4.X
 """
 
@@ -27,7 +27,7 @@ app.config['SESSION_TYPE'] = 'filesystem'
 app.config['SESSION_PERMANENT'] = False
 app.config['SESSION_USE_SIGNER'] = True
 app.config['SESSION_KEY_PREFIX'] = 'pointeuse:'
-app.config['SESSION_COOKIE_SECURE'] = False  # HTTP pour le déploiement
+app.config['SESSION_COOKIE_SECURE'] = True  # HTTPS en production
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 
@@ -415,12 +415,15 @@ def create_tables():
     except Exception as e:
         print(f"Erreur lors de l'initialisation: {str(e)}")
 
-# Initialiser la base de données au démarrage
-create_tables()
-
 if __name__ == '__main__':
+    # Configuration pour le développement
+    app.config['SESSION_COOKIE_SECURE'] = False  # HTTP en dev
+    
+    # Initialiser la base de données
+    create_tables()
+    
     print("\n🚀 Démarrage de l'application de pointage")
     print("📊 Interface admin: http://localhost:5000/admin/pointages")
     print("🔑 Connexion: ADMIN001 / admin123")
     
-    app.run(host='0.0.0.0', port=5000, debug=False)
+    app.run(host='0.0.0.0', port=5000, debug=True)
