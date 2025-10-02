@@ -368,3 +368,8 @@ def bulk_admin_timeentries():
     
     return jsonify({'success': False, 'error': 'Unknown bulk action'}), 400
 
+
+# Route pour l'interface de gestion des pointages générée par Anthropic
+@app.route('/admin/pointages')
+def admin_pointages():
+    return send_file(os.path.join(app.static_folder, 'admin_timeentries_generated.html'))
