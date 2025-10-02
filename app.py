@@ -188,13 +188,13 @@ def health_check():
         'database_path': database_path
     }, 200
 
-@app.route('/pointage')
-def pointage():
-    return send_file(os.path.join(app.static_folder, 'pointage.html'))
-
 @app.route('/admin/timeentries')
 def admin_timeentries():
     return send_file(os.path.join(app.static_folder, 'admin_timeentries.html'))
+
+@app.route('/pointage')
+def pointage():
+    return send_file(os.path.join(app.static_folder, 'pointage.html'))
 
 @app.route('/')
 def index():
@@ -203,6 +203,9 @@ def index():
 @app.route('/<path:path>')
 def serve_static_files(path):
     """Servir les fichiers statiques du frontend"""
+    # Éviter de capturer les routes admin spécifiques
+    if path.startswith('admin/'):
+        return "Route non trouvée", 404
     try:
         return send_from_directory(app.static_folder, path)
     except:
