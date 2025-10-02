@@ -49,6 +49,11 @@ app.register_blueprint(employee_bp, url_prefix='/api')  # Version améliorée
 app.register_blueprint(timeentry_bp, url_prefix='/api')
 app.register_blueprint(export_bp, url_prefix='/api')
 
+# Ajouter les routes de gestion administrative des pointages
+from admin_timeentries_api import add_admin_timeentries_routes
+from src.models.timeentry import TimeEntry
+add_admin_timeentries_routes(app, db, Employee, TimeEntry)
+
 # Routes de sauvegarde/restauration (admin seulement)
 @app.route('/admin/create-backup', methods=['POST'])
 def create_backup():
@@ -183,15 +188,16 @@ def health_check():
         'database_path': database_path
     }, 200
 
-# NOUVELLE ROUTE: Interface de pointage améliorée
 @app.route('/pointage')
-def pointage_interface():
-    """Interface de pointage avec liste déroulante"""
+def pointage():
     return send_file(os.path.join(app.static_folder, 'pointage.html'))
 
+@app.route('/admin/timeentries')
+def admin_timeentries():
+    return send_file(os.path.join(app.static_folder, 'admin_timeentries.html'))
+
 @app.route('/')
-def serve_frontend():
-    """Servir la page d'accueil du frontend"""
+def index():
     return send_file(os.path.join(app.static_folder, 'index.html'))
 
 @app.route('/<path:path>')
