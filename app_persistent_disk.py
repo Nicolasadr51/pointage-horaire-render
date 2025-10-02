@@ -10,7 +10,7 @@ from flask import Flask, send_from_directory, send_file, session, jsonify
 from flask_cors import CORS
 from src.models.employee import db, Employee
 from src.routes.auth import auth_bp
-from src.routes.employee_improved import employee_bp  # Version améliorée
+from src.routes.employee import employee_bp
 from src.routes.timeentry import timeentry_bp
 from src.routes.export import export_bp
 
@@ -26,18 +26,23 @@ app.config['SESSION_COOKIE_SECURE'] = True  # HTTPS en production
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 
-# Configuration de la base de données - SQLite temporaire
-database_dir = os.path.join(os.path.dirname(__file__), 'database')
+# Configuration de la base de données avec disque persistant
+# Le disque persistant sera monté sur /opt/render/project/data
+persistent_data_dir = '/opt/render/project/data'
+local_data_dir = os.path.join(os.path.dirname(__file__), 'database')
+
+# Utiliser le disque persistant si disponible, sinon local
+if os.path.exists(persistent_data_dir) and os.access(persistent_data_dir, os.W_OK):
+    database_dir = persistent_data_dir
+    print("🔒 Utilisation du disque persistant Render pour la base de données")
+else:
+    database_dir = local_data_dir
+    print("🗄️ Utilisation du stockage local (développement)")
+
 os.makedirs(database_dir, exist_ok=True)
 database_path = os.path.join(database_dir, 'app.db')
 app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{database_path}'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-
-print("🗄️ Utilisation de SQLite avec améliorations UX")
-print("✨ Nouvelles fonctionnalités:")
-print("   - Numéro d'employé libre (Munier, EMP001, etc.)")
-print("   - Connexion insensible à la casse")
-print("   - Interface de pointage avec liste déroulante")
 
 # Initialisation des extensions
 db.init_app(app)
@@ -45,7 +50,7 @@ CORS(app, supports_credentials=True, origins=['*'])
 
 # Enregistrement des blueprints
 app.register_blueprint(auth_bp, url_prefix='/api/auth')
-app.register_blueprint(employee_bp, url_prefix='/api')  # Version améliorée
+app.register_blueprint(employee_bp, url_prefix='/api')
 app.register_blueprint(timeentry_bp, url_prefix='/api')
 app.register_blueprint(export_bp, url_prefix='/api')
 
@@ -61,26 +66,21 @@ def create_backup():
         return jsonify({'error': 'Accès refusé'}), 403
     
     try:
-        import subprocess
-        import sys
+        # Créer une sauvegarde sur le disque persistant
+        backup_dir = os.path.join(database_dir, 'backups')
+        os.makedirs(backup_dir, exist_ok=True)
         
-        result = subprocess.run([
-            sys.executable, 'backup_data.py', 'backup'
-        ], capture_output=True, text=True, cwd=os.path.dirname(__file__))
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        backup_file = os.path.join(backup_dir, f'backup_{timestamp}.db')
         
-        if result.returncode == 0:
-            return jsonify({
-                'message': 'Sauvegarde créée avec succès',
-                'output': result.stdout,
-                'database_type': 'SQLite (amélioré)',
-                'improvements': [
-                    'Numéro d\'employé libre',
-                    'Connexion insensible à la casse',
-                    'Interface pointage avec liste'
-                ]
-            }), 200
-        else:
-            return jsonify({'error': 'Échec de la sauvegarde', 'output': result.stderr}), 500
+        # Copier la base de données
+        shutil.copy2(database_path, backup_file)
+        
+        return jsonify({
+            'message': 'Sauvegarde créée avec succès sur disque persistant',
+            'backup_file': f'backup_{timestamp}.db',
+            'location': 'Disque persistant Render'
+        }), 200
             
     except Exception as e:
         return jsonify({'error': f'Erreur lors de la sauvegarde: {str(e)}'}), 500
@@ -96,21 +96,27 @@ def restore_backup():
         return jsonify({'error': 'Accès refusé'}), 403
     
     try:
-        import subprocess
-        import sys
+        backup_dir = os.path.join(database_dir, 'backups')
         
-        result = subprocess.run([
-            sys.executable, 'backup_data.py', 'restore'
-        ], capture_output=True, text=True, cwd=os.path.dirname(__file__))
+        if not os.path.exists(backup_dir):
+            return jsonify({'error': 'Aucune sauvegarde trouvée'}), 404
         
-        if result.returncode == 0:
-            return jsonify({
-                'message': 'Données restaurées avec succès',
-                'output': result.stdout,
-                'database_type': 'SQLite (amélioré)'
-            }), 200
-        else:
-            return jsonify({'error': 'Échec de la restauration', 'output': result.stderr}), 500
+        # Trouver la sauvegarde la plus récente
+        backup_files = [f for f in os.listdir(backup_dir) if f.startswith('backup_') and f.endswith('.db')]
+        
+        if not backup_files:
+            return jsonify({'error': 'Aucune sauvegarde trouvée'}), 404
+        
+        latest_backup = sorted(backup_files)[-1]
+        backup_path = os.path.join(backup_dir, latest_backup)
+        
+        # Restaurer la base de données
+        shutil.copy2(backup_path, database_path)
+        
+        return jsonify({
+            'message': 'Données restaurées avec succès',
+            'restored_from': latest_backup
+        }), 200
             
     except Exception as e:
         return jsonify({'error': f'Erreur lors de la restauration: {str(e)}'}), 500
@@ -126,20 +132,16 @@ def list_backups():
         return jsonify({'error': 'Accès refusé'}), 403
     
     try:
-        backup_dir = os.path.join(os.path.dirname(__file__), 'backups')
+        backup_dir = os.path.join(database_dir, 'backups')
         
         if not os.path.exists(backup_dir):
             return jsonify({
-                'backups': [],
-                'database_type': 'SQLite (amélioré)',
-                'improvements': [
-                    'Numéro d\'employé libre',
-                    'Connexion insensible à la casse',
-                    'Interface pointage avec liste'
-                ]
+                'backups': [], 
+                'storage_type': 'Disque persistant Render',
+                'note': 'Aucune sauvegarde trouvée'
             }), 200
         
-        backup_files = [f for f in os.listdir(backup_dir) if f.startswith('backup_') and f.endswith('.json')]
+        backup_files = [f for f in os.listdir(backup_dir) if f.startswith('backup_') and f.endswith('.db')]
         
         backups = []
         for backup_file in sorted(backup_files, reverse=True):
@@ -156,12 +158,8 @@ def list_backups():
         
         return jsonify({
             'backups': backups,
-            'database_type': 'SQLite (amélioré)',
-            'improvements': [
-                'Numéro d\'employé libre',
-                'Connexion insensible à la casse',
-                'Interface pointage avec liste'
-            ]
+            'storage_type': 'Disque persistant Render',
+            'database_location': database_path
         }), 200
         
     except Exception as e:
@@ -170,24 +168,16 @@ def list_backups():
 @app.route('/health')
 def health_check():
     """Point de contrôle de santé pour le déploiement"""
+    is_persistent = os.path.exists(persistent_data_dir) and os.access(persistent_data_dir, os.W_OK)
+    
     return {
         'status': 'healthy', 
         'app': 'pointeuse-horaire',
-        'database': 'SQLite (amélioré)',
-        'persistent': False,
-        'improvements': [
-            'Numéro d\'employé libre (Munier, EMP001, etc.)',
-            'Connexion insensible à la casse',
-            'Interface pointage avec liste déroulante'
-        ],
+        'database': 'SQLite',
+        'storage': 'Disque persistant' if is_persistent else 'Local',
+        'persistent': is_persistent,
         'database_path': database_path
     }, 200
-
-# NOUVELLE ROUTE: Interface de pointage améliorée
-@app.route('/pointage')
-def pointage_interface():
-    """Interface de pointage avec liste déroulante"""
-    return send_file(os.path.join(app.static_folder, 'pointage.html'))
 
 @app.route('/')
 def serve_frontend():
@@ -208,13 +198,6 @@ if __name__ == '__main__':
         # Utiliser le script d'initialisation avec préservation
         from init_with_preservation import init_database_with_preservation
         init_database_with_preservation()
-        
-        print("\n🎯 AMÉLIORATIONS DÉPLOYÉES:")
-        print("   📝 Numéro d'employé libre: Munier, munier, EMP001, etc.")
-        print("   🔤 Connexion insensible à la casse")
-        print("   📋 Interface pointage: /pointage (liste déroulante)")
-        print("   🔧 Interface admin: / (gestion complète)")
-        print("\n✅ Application prête avec toutes les améliorations UX!")
     
     port = int(os.environ.get('PORT', 10000))
     app.run(host='0.0.0.0', port=port, debug=False)

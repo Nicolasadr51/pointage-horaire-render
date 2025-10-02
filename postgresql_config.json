@@ -1,0 +1,14 @@
+{
+  "database_type": "postgresql",
+  "supabase_url": "YOUR_SUPABASE_URL",
+  "supabase_key": "YOUR_SUPABASE_ANON_KEY",
+  "database_url": "postgresql://postgres:[YOUR-PASSWORD]@db.[YOUR-PROJECT-REF].supabase.co:5432/postgres",
+  "migration_date": "2025-10-01T06:22:41.383990",
+  "benefits": [
+    "Persistance des donn\u00e9es garantie",
+    "Pas de perte lors des red\u00e9ploiements",
+    "Sauvegardes automatiques",
+    "Scalabilit\u00e9",
+    "500 MB gratuits avec Supabase"
+  ]
+}

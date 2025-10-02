@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: pointage-horaire
+    env: python
+    plan: starter  # Plan payant requis pour les disques persistants
+    buildCommand: pip install -r requirements.txt
+    startCommand: python app.py
+    envVars:
+      - key: SECRET_KEY
+        generateValue: true
+      - key: PYTHON_VERSION
+        value: 3.11.0
+    disk:
+      name: pointage-data
+      mountPath: /opt/render/project/data
+      sizeGB: 1  # 1 GB suffit largement pour l'application

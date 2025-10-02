@@ -10,7 +10,7 @@ from flask import Flask, send_from_directory, send_file, session, jsonify
 from flask_cors import CORS
 from src.models.employee import db, Employee
 from src.routes.auth import auth_bp
-from src.routes.employee_improved import employee_bp  # Version améliorée
+from src.routes.employee import employee_bp
 from src.routes.timeentry import timeentry_bp
 from src.routes.export import export_bp
 
@@ -26,18 +26,16 @@ app.config['SESSION_COOKIE_SECURE'] = True  # HTTPS en production
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 
-# Configuration de la base de données - SQLite temporaire
+# Configuration de la base de données - TEMPORAIREMENT SQLite
+# TODO: Migrer vers PostgreSQL une fois l'application stable
 database_dir = os.path.join(os.path.dirname(__file__), 'database')
 os.makedirs(database_dir, exist_ok=True)
 database_path = os.path.join(database_dir, 'app.db')
 app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{database_path}'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-print("🗄️ Utilisation de SQLite avec améliorations UX")
-print("✨ Nouvelles fonctionnalités:")
-print("   - Numéro d'employé libre (Munier, EMP001, etc.)")
-print("   - Connexion insensible à la casse")
-print("   - Interface de pointage avec liste déroulante")
+print("🗄️ Utilisation temporaire de SQLite pour stabilité")
+print("📝 Migration vers PostgreSQL prévue après stabilisation")
 
 # Initialisation des extensions
 db.init_app(app)
@@ -45,7 +43,7 @@ CORS(app, supports_credentials=True, origins=['*'])
 
 # Enregistrement des blueprints
 app.register_blueprint(auth_bp, url_prefix='/api/auth')
-app.register_blueprint(employee_bp, url_prefix='/api')  # Version améliorée
+app.register_blueprint(employee_bp, url_prefix='/api')
 app.register_blueprint(timeentry_bp, url_prefix='/api')
 app.register_blueprint(export_bp, url_prefix='/api')
 
@@ -72,12 +70,8 @@ def create_backup():
             return jsonify({
                 'message': 'Sauvegarde créée avec succès',
                 'output': result.stdout,
-                'database_type': 'SQLite (amélioré)',
-                'improvements': [
-                    'Numéro d\'employé libre',
-                    'Connexion insensible à la casse',
-                    'Interface pointage avec liste'
-                ]
+                'database_type': 'SQLite (temporaire)',
+                'note': 'Migration PostgreSQL prévue prochainement'
             }), 200
         else:
             return jsonify({'error': 'Échec de la sauvegarde', 'output': result.stderr}), 500
@@ -107,7 +101,7 @@ def restore_backup():
             return jsonify({
                 'message': 'Données restaurées avec succès',
                 'output': result.stdout,
-                'database_type': 'SQLite (amélioré)'
+                'database_type': 'SQLite (temporaire)'
             }), 200
         else:
             return jsonify({'error': 'Échec de la restauration', 'output': result.stderr}), 500
@@ -131,12 +125,8 @@ def list_backups():
         if not os.path.exists(backup_dir):
             return jsonify({
                 'backups': [],
-                'database_type': 'SQLite (amélioré)',
-                'improvements': [
-                    'Numéro d\'employé libre',
-                    'Connexion insensible à la casse',
-                    'Interface pointage avec liste'
-                ]
+                'database_type': 'SQLite (temporaire)',
+                'note': 'Migration PostgreSQL prévue prochainement'
             }), 200
         
         backup_files = [f for f in os.listdir(backup_dir) if f.startswith('backup_') and f.endswith('.json')]
@@ -156,12 +146,8 @@ def list_backups():
         
         return jsonify({
             'backups': backups,
-            'database_type': 'SQLite (amélioré)',
-            'improvements': [
-                'Numéro d\'employé libre',
-                'Connexion insensible à la casse',
-                'Interface pointage avec liste'
-            ]
+            'database_type': 'SQLite (temporaire)',
+            'note': 'Migration PostgreSQL prévue prochainement'
         }), 200
         
     except Exception as e:
@@ -173,21 +159,11 @@ def health_check():
     return {
         'status': 'healthy', 
         'app': 'pointeuse-horaire',
-        'database': 'SQLite (amélioré)',
+        'database': 'SQLite (temporaire)',
         'persistent': False,
-        'improvements': [
-            'Numéro d\'employé libre (Munier, EMP001, etc.)',
-            'Connexion insensible à la casse',
-            'Interface pointage avec liste déroulante'
-        ],
+        'note': 'Migration PostgreSQL prévue après stabilisation',
         'database_path': database_path
     }, 200
-
-# NOUVELLE ROUTE: Interface de pointage améliorée
-@app.route('/pointage')
-def pointage_interface():
-    """Interface de pointage avec liste déroulante"""
-    return send_file(os.path.join(app.static_folder, 'pointage.html'))
 
 @app.route('/')
 def serve_frontend():
@@ -208,13 +184,6 @@ if __name__ == '__main__':
         # Utiliser le script d'initialisation avec préservation
         from init_with_preservation import init_database_with_preservation
         init_database_with_preservation()
-        
-        print("\n🎯 AMÉLIORATIONS DÉPLOYÉES:")
-        print("   📝 Numéro d'employé libre: Munier, munier, EMP001, etc.")
-        print("   🔤 Connexion insensible à la casse")
-        print("   📋 Interface pointage: /pointage (liste déroulante)")
-        print("   🔧 Interface admin: / (gestion complète)")
-        print("\n✅ Application prête avec toutes les améliorations UX!")
     
     port = int(os.environ.get('PORT', 10000))
     app.run(host='0.0.0.0', port=port, debug=False)

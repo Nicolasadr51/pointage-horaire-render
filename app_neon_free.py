@@ -10,7 +10,7 @@ from flask import Flask, send_from_directory, send_file, session, jsonify
 from flask_cors import CORS
 from src.models.employee import db, Employee
 from src.routes.auth import auth_bp
-from src.routes.employee_improved import employee_bp  # Version améliorée
+from src.routes.employee import employee_bp
 from src.routes.timeentry import timeentry_bp
 from src.routes.export import export_bp
 
@@ -26,18 +26,28 @@ app.config['SESSION_COOKIE_SECURE'] = True  # HTTPS en production
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 
-# Configuration de la base de données - SQLite temporaire
-database_dir = os.path.join(os.path.dirname(__file__), 'database')
-os.makedirs(database_dir, exist_ok=True)
-database_path = os.path.join(database_dir, 'app.db')
-app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{database_path}'
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+# Configuration de la base de données
+# Utiliser Neon PostgreSQL gratuit si disponible, sinon SQLite local
+if os.environ.get('DATABASE_URL'):
+    # Production avec Neon PostgreSQL (gratuit)
+    database_url = os.environ.get('DATABASE_URL')
+    # Neon utilise parfois postgres:// au lieu de postgresql://
+    if database_url.startswith('postgres://'):
+        database_url = database_url.replace('postgres://', 'postgresql://', 1)
+    
+    app.config['SQLALCHEMY_DATABASE_URI'] = database_url
+    print("🐘 Utilisation de Neon PostgreSQL (gratuit) pour la persistance")
+    database_type = "PostgreSQL (Neon)"
+else:
+    # Développement avec SQLite
+    database_dir = os.path.join(os.path.dirname(__file__), 'database')
+    os.makedirs(database_dir, exist_ok=True)
+    database_path = os.path.join(database_dir, 'app.db')
+    app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{database_path}'
+    print("🗄️ Utilisation de SQLite pour le développement")
+    database_type = "SQLite (local)"
 
-print("🗄️ Utilisation de SQLite avec améliorations UX")
-print("✨ Nouvelles fonctionnalités:")
-print("   - Numéro d'employé libre (Munier, EMP001, etc.)")
-print("   - Connexion insensible à la casse")
-print("   - Interface de pointage avec liste déroulante")
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # Initialisation des extensions
 db.init_app(app)
@@ -45,7 +55,7 @@ CORS(app, supports_credentials=True, origins=['*'])
 
 # Enregistrement des blueprints
 app.register_blueprint(auth_bp, url_prefix='/api/auth')
-app.register_blueprint(employee_bp, url_prefix='/api')  # Version améliorée
+app.register_blueprint(employee_bp, url_prefix='/api')
 app.register_blueprint(timeentry_bp, url_prefix='/api')
 app.register_blueprint(export_bp, url_prefix='/api')
 
@@ -61,6 +71,7 @@ def create_backup():
         return jsonify({'error': 'Accès refusé'}), 403
     
     try:
+        # Avec PostgreSQL, créer un export JSON
         import subprocess
         import sys
         
@@ -72,12 +83,8 @@ def create_backup():
             return jsonify({
                 'message': 'Sauvegarde créée avec succès',
                 'output': result.stdout,
-                'database_type': 'SQLite (amélioré)',
-                'improvements': [
-                    'Numéro d\'employé libre',
-                    'Connexion insensible à la casse',
-                    'Interface pointage avec liste'
-                ]
+                'database_type': database_type,
+                'note': 'PostgreSQL assure la persistance automatique'
             }), 200
         else:
             return jsonify({'error': 'Échec de la sauvegarde', 'output': result.stderr}), 500
@@ -107,7 +114,7 @@ def restore_backup():
             return jsonify({
                 'message': 'Données restaurées avec succès',
                 'output': result.stdout,
-                'database_type': 'SQLite (amélioré)'
+                'database_type': database_type
             }), 200
         else:
             return jsonify({'error': 'Échec de la restauration', 'output': result.stderr}), 500
@@ -131,12 +138,8 @@ def list_backups():
         if not os.path.exists(backup_dir):
             return jsonify({
                 'backups': [],
-                'database_type': 'SQLite (amélioré)',
-                'improvements': [
-                    'Numéro d\'employé libre',
-                    'Connexion insensible à la casse',
-                    'Interface pointage avec liste'
-                ]
+                'database_type': database_type,
+                'note': 'PostgreSQL assure la persistance automatique'
             }), 200
         
         backup_files = [f for f in os.listdir(backup_dir) if f.startswith('backup_') and f.endswith('.json')]
@@ -156,12 +159,8 @@ def list_backups():
         
         return jsonify({
             'backups': backups,
-            'database_type': 'SQLite (amélioré)',
-            'improvements': [
-                'Numéro d\'employé libre',
-                'Connexion insensible à la casse',
-                'Interface pointage avec liste'
-            ]
+            'database_type': database_type,
+            'note': 'Les données sont automatiquement persistées avec PostgreSQL'
         }), 200
         
     except Exception as e:
@@ -170,24 +169,16 @@ def list_backups():
 @app.route('/health')
 def health_check():
     """Point de contrôle de santé pour le déploiement"""
+    is_postgresql = os.environ.get('DATABASE_URL') is not None
+    
     return {
         'status': 'healthy', 
         'app': 'pointeuse-horaire',
-        'database': 'SQLite (amélioré)',
-        'persistent': False,
-        'improvements': [
-            'Numéro d\'employé libre (Munier, EMP001, etc.)',
-            'Connexion insensible à la casse',
-            'Interface pointage avec liste déroulante'
-        ],
-        'database_path': database_path
+        'database': database_type,
+        'persistent': is_postgresql,
+        'free_tier': 'Neon PostgreSQL' if is_postgresql else 'Local SQLite',
+        'storage_limit': '512 MB' if is_postgresql else 'Illimité (local)'
     }, 200
-
-# NOUVELLE ROUTE: Interface de pointage améliorée
-@app.route('/pointage')
-def pointage_interface():
-    """Interface de pointage avec liste déroulante"""
-    return send_file(os.path.join(app.static_folder, 'pointage.html'))
 
 @app.route('/')
 def serve_frontend():
@@ -208,13 +199,6 @@ if __name__ == '__main__':
         # Utiliser le script d'initialisation avec préservation
         from init_with_preservation import init_database_with_preservation
         init_database_with_preservation()
-        
-        print("\n🎯 AMÉLIORATIONS DÉPLOYÉES:")
-        print("   📝 Numéro d'employé libre: Munier, munier, EMP001, etc.")
-        print("   🔤 Connexion insensible à la casse")
-        print("   📋 Interface pointage: /pointage (liste déroulante)")
-        print("   🔧 Interface admin: / (gestion complète)")
-        print("\n✅ Application prête avec toutes les améliorations UX!")
     
     port = int(os.environ.get('PORT', 10000))
     app.run(host='0.0.0.0', port=port, debug=False)

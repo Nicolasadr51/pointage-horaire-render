@@ -1,0 +1,99 @@
+{
+  "title": "Solutions de Base de Donn\u00e9es Gratuites",
+  "date": "2025-10-01T06:26:50.613828",
+  "options": [
+    {
+      "name": "Aiven PostgreSQL",
+      "provider": "Aiven",
+      "type": "PostgreSQL",
+      "free_tier": {
+        "storage": "1 GB",
+        "duration": "1 mois gratuit",
+        "connections": "25",
+        "backup": "Oui"
+      },
+      "url": "https://aiven.io",
+      "pros": [
+        "PostgreSQL complet",
+        "Interface simple",
+        "Sauvegardes automatiques",
+        "SSL inclus"
+      ],
+      "cons": [
+        "Limit\u00e9 \u00e0 1 mois gratuit",
+        "N\u00e9cessite une carte de cr\u00e9dit"
+      ]
+    },
+    {
+      "name": "ElephantSQL",
+      "provider": "ElephantSQL",
+      "type": "PostgreSQL",
+      "free_tier": {
+        "storage": "20 MB",
+        "duration": "Permanent",
+        "connections": "5",
+        "backup": "Non"
+      },
+      "url": "https://elephantsql.com",
+      "pros": [
+        "Gratuit permanent",
+        "PostgreSQL complet",
+        "Facile \u00e0 configurer",
+        "Pas de carte de cr\u00e9dit"
+      ],
+      "cons": [
+        "Stockage tr\u00e8s limit\u00e9 (20 MB)",
+        "Peu de connexions simultan\u00e9es"
+      ]
+    },
+    {
+      "name": "Neon",
+      "provider": "Neon",
+      "type": "PostgreSQL",
+      "free_tier": {
+        "storage": "512 MB",
+        "duration": "Permanent",
+        "connections": "Illimit\u00e9es",
+        "backup": "Oui"
+      },
+      "url": "https://neon.tech",
+      "pros": [
+        "Gratuit permanent",
+        "Stockage correct (512 MB)",
+        "Connexions illimit\u00e9es",
+        "Sauvegardes incluses"
+      ],
+      "cons": [
+        "Service relativement nouveau",
+        "Peut avoir des limitations de performance"
+      ]
+    },
+    {
+      "name": "PlanetScale (MySQL)",
+      "provider": "PlanetScale",
+      "type": "MySQL",
+      "free_tier": {
+        "storage": "5 GB",
+        "duration": "Permanent",
+        "connections": "1000",
+        "backup": "Oui"
+      },
+      "url": "https://planetscale.com",
+      "pros": [
+        "Stockage g\u00e9n\u00e9reux (5 GB)",
+        "Gratuit permanent",
+        "Excellente performance",
+        "Sauvegardes automatiques"
+      ],
+      "cons": [
+        "MySQL au lieu de PostgreSQL",
+        "N\u00e9cessite adaptation du code"
+      ]
+    }
+  ],
+  "recommendation": {
+    "best_option": "Neon",
+    "reason": "Meilleur \u00e9quilibre entre stockage (512 MB), gratuit\u00e9 permanente et fonctionnalit\u00e9s",
+    "alternative": "ElephantSQL si le stockage de 20 MB suffit"
+  }
+}
